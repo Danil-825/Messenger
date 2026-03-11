@@ -6,13 +6,20 @@ import com.example.demo.DTO.UserDTO.NotificationResponseForUserDTO;
 import com.example.demo.entity.Notification;
 import com.example.demo.entity.User;
 import com.example.demo.entity.UserRole;
+import com.example.demo.exceptions.NotificationNotFoundException;
+import com.example.demo.exceptions.UserNotFoundException;
 import com.example.demo.repository.NotificationRepository;
 import com.example.demo.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class NotificationService {
 
@@ -24,11 +31,16 @@ public class NotificationService {
         this.userRepository = userRepository;
     }
 
+
+    @Transactional(rollbackFor = Exception.class)
     public NotificationResponseForUserDTO create (String emailUser, NotificationCreateDTO notificationCreateDTO) {
         User userSender = userRepository.findByEmail(emailUser)
-                .orElseThrow(() -> new RuntimeException("not found"));
+                .orElseThrow(() -> new UserNotFoundException("not found"));
         User anotherUser = userRepository.findByEmail(notificationCreateDTO.getAnotherEmailUser())
-                .orElseThrow(() -> new RuntimeException("not found"));
+                .orElseThrow(() -> {
+                    log.warn("User not found");
+                    return new UserNotFoundException("User not found");
+                });
         if (anotherUser.getUserRole().equals(UserRole.USER)) {
             Notification notification = new Notification();
             notification.setTitle(notificationCreateDTO.getTitle());
@@ -48,16 +60,21 @@ public class NotificationService {
 
             return new NotificationResponseForUserDTO(notification);
         }
-        else throw new RuntimeException("Not found");
+        else {
+            log.warn("Пользователь является админом");
+            throw new RuntimeException("Not found");
+        }
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void delete (Long notificationId) {
         notificationRepository.deleteById(notificationId);
     }
 
+
     public List<NotificationResponseDTO> findAll() {
-        return notificationRepository
-                .findAll()
+        checkNotification(notificationRepository.findAll());
+        return notificationRepository.findAll()
                 .stream()
                 .map(NotificationResponseDTO::new)
                 .collect(Collectors.toList());
@@ -65,7 +82,7 @@ public class NotificationService {
 
     public List<NotificationResponseDTO> findByUserId(Long userId) {
         List<Notification> notifications = notificationRepository.findByUserId(userId);
-
+        checkNotification(notifications);
         return notifications.stream()
                 .map(NotificationResponseDTO::new)
                 .collect(Collectors.toList());
@@ -73,6 +90,7 @@ public class NotificationService {
 
     public List<NotificationResponseForUserDTO> findByUserEmail(String email) {
         List<Notification> notifications = notificationRepository.findByUserEmail(email);
+        checkNotification(notifications);
         return notifications.stream()
                 .map(NotificationResponseForUserDTO::new)
                 .collect(Collectors.toList());
@@ -87,15 +105,26 @@ public class NotificationService {
 
     public List<NotificationResponseDTO> findByTitle(String title) {
         List<Notification> notifications = notificationRepository.findByTitle(title);
+        checkNotification(notifications);
         return notifications.stream()
                 .map(NotificationResponseDTO::new)
                 . collect(Collectors.toList());
     }
 
-    public NotificationResponseDTO findByTitleAndUserEmail(String title, String userEmail) {
-        Optional <Notification> notification = notificationRepository
-                .findByTitleAndUserEmail(title, userEmail);
-        Notification notif = notification.orElseThrow(() -> new RuntimeException("Not found"));
-        return new NotificationResponseDTO(notif);
+    public List<NotificationResponseForUserDTO> findByTitleAndUserEmail(String title, String userEmail) {
+        List<Notification> notifications = notificationRepository.findByTitleAndUserEmail(title, userEmail);
+        checkNotification(notifications);
+        return notifications.stream()
+                .map(NotificationResponseForUserDTO::new)
+                .collect(Collectors.toList());
+    }
+
+
+
+    private void checkNotification(List<Notification> notification) {
+        if (notification.isEmpty()) {
+            log.warn("Not found");
+            throw new NotificationNotFoundException("Notification not found");
+        }
     }
 }
