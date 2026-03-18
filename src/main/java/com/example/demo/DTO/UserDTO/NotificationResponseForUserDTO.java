@@ -6,14 +6,12 @@ import lombok.Data;
 
 @Data
 public class NotificationResponseForUserDTO {
-    private String title;
-    private String content;
+    private String message;
     private String status;
     private String anotherUserEmail;
 
     public NotificationResponseForUserDTO(Notification notification) {
-        this.title = notification.getTitle();
-        this.content = notification.getContent();
+        this.message = notification.getMessage();
         this.status = notification.getStatus();
         this.anotherUserEmail = notification.getAnotherUser() != null ? notification.getAnotherUser().getEmail() : null;
     }

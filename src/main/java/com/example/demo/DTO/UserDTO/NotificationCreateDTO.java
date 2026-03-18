@@ -6,9 +6,7 @@ import lombok.Data;
 @Data
 public class NotificationCreateDTO {
     @NotBlank
-    private String title;
-    @NotBlank
-    private String content;
+    private String message;
     @NotBlank
     private String anotherEmailUser;
 }

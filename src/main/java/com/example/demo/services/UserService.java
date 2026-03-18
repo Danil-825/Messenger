@@ -59,8 +59,10 @@ public class UserService {
 
     private User updateBaseFields(User user, String name, String email, String password) {
         if (name != null) user.setName(name);
-        if (email != null) user.setEmail(email);
-        throwIfEmailExists(() -> userRepository.findByEmail(email), email);
+        if (email != null) {
+            user.setEmail(email);
+            throwIfEmailExists(() -> userRepository.findByEmail(email), email);
+        }
         if (password != null) user.setPassword(passwordEncoder.encode(password));
         return user;
     }
@@ -112,7 +114,7 @@ public class UserService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
+    public void deleteById(Long id) {
         userRepository.deleteById(id);
     }
 

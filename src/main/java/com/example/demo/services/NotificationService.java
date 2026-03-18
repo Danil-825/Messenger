@@ -11,7 +11,6 @@ import com.example.demo.exceptions.UserNotFoundException;
 import com.example.demo.repository.NotificationRepository;
 import com.example.demo.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,16 +42,14 @@ public class NotificationService {
                 });
         if (anotherUser.getUserRole().equals(UserRole.USER)) {
             Notification notification = new Notification();
-            notification.setTitle(notificationCreateDTO.getTitle());
-            notification.setContent(notificationCreateDTO.getContent());
+            notification.setMessage(notificationCreateDTO.getMessage());
             notification.setStatus("отправлено");
             notification.setUser(userSender);
             notification.setAnotherUser(anotherUser);
             notificationRepository.save(notification);
 
             Notification anotherNotification = new Notification();
-            anotherNotification.setTitle(notificationCreateDTO.getTitle());
-            anotherNotification.setContent(notificationCreateDTO.getContent());
+            anotherNotification.setMessage(notificationCreateDTO.getMessage());
             anotherNotification.setStatus("получено");
             anotherNotification.setUser(anotherUser);
             anotherNotification.setAnotherUser(userSender);
@@ -103,22 +100,21 @@ public class NotificationService {
         return new NotificationResponseDTO(notificationEntity);
     }
 
-    public List<NotificationResponseDTO> findByTitle(String title) {
-        List<Notification> notifications = notificationRepository.findByTitle(title);
+    public List<NotificationResponseDTO> findByMessage(String message) {
+        List<Notification> notifications = notificationRepository.findByMessage(message);
         checkNotification(notifications);
         return notifications.stream()
                 .map(NotificationResponseDTO::new)
                 . collect(Collectors.toList());
     }
 
-    public List<NotificationResponseForUserDTO> findByTitleAndUserEmail(String title, String userEmail) {
-        List<Notification> notifications = notificationRepository.findByTitleAndUserEmail(title, userEmail);
+    public List<NotificationResponseForUserDTO> findByMessageAndUserEmail(String message, String userEmail) {
+        List<Notification> notifications = notificationRepository.findByMessageAndUserEmail(message, userEmail);
         checkNotification(notifications);
         return notifications.stream()
                 .map(NotificationResponseForUserDTO::new)
                 .collect(Collectors.toList());
     }
-
 
 
     private void checkNotification(List<Notification> notification) {

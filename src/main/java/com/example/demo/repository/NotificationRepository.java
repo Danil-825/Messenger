@@ -6,8 +6,8 @@ import java.util.List;
 
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findByTitle(String title);
+    List<Notification> findByMessage(String message);
     List<Notification> findByUserId(Long userId);
     List<Notification> findByUserEmail(String email);
-    List<Notification> findByTitleAndUserEmail(String title, String email);
+    List<Notification> findByMessageAndUserEmail(String message, String email);
 }

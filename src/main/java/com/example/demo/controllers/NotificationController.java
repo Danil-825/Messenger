@@ -50,7 +50,7 @@ public class NotificationController {
     }
 
 
-    @Operation(summary="Найти сообщение по title")
+    @Operation(summary="Найти сообщение по message")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Сообщение найдено"),
             @ApiResponse(responseCode = "404", description = "Сообщение не найдено"),
@@ -58,9 +58,9 @@ public class NotificationController {
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/admin/notif/title/{title}")
-    public List<NotificationResponseDTO> findByTitle(@PathVariable String title) {
-        return notificationService.findByTitle(title);
+    @GetMapping("/admin/notif/message/{message}")
+    public List<NotificationResponseDTO> findByTitle(@PathVariable String message) {
+        return notificationService.findByMessage(message);
     }
 
 
@@ -136,9 +136,9 @@ public class NotificationController {
             @ApiResponse(responseCode = "404", description = "Сообщения не найдены"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
-    @GetMapping("/user/mynotif/{title}")
-    public List<NotificationResponseForUserDTO> findByTitleAndUserEmail (@PathVariable String title,
+    @GetMapping("/user/mynotif/{message}")
+    public List<NotificationResponseForUserDTO> findByMessageAndUserEmail (@PathVariable String message,
                 @AuthenticationPrincipal UserDetails currentUser) {
-        return notificationService.findByTitleAndUserEmail(title, currentUser.getUsername());
+        return notificationService.findByMessageAndUserEmail(message, currentUser.getUsername());
     }
 }
