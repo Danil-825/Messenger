@@ -2,7 +2,7 @@ package com.example.demo.repository;
 
 
 import com.example.demo.entity.User;
-import com.example.demo.entity.UserRole;
+import com.example.demo.entity.enums.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,34 +1,34 @@
 package com.example.demo.entity;
 
+
+import com.example.demo.entity.enums.ChatRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Entity
-@Table(name = "notifications")
-@Data
+@NoArgsConstructor
 @Builder
 @AllArgsConstructor
-@NoArgsConstructor
-public class Notification {
+@Data
+@Table(name = "participants")
+public class Participant {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String message;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    @OneToMany(mappedBy = "notification")
-    private List<MessageStatuses> messageStatuses = new ArrayList<>();
-
     @ManyToOne
     @JoinColumn(name = "chat_id")
     private Chat chat;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chat_role")
+    private ChatRole chatRole;
+
 }

@@ -13,7 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import static com.example.demo.entity.UserRole.USER;
+import static com.example.demo.entity.enums.UserRole.USER;
 
 @Service
 @AllArgsConstructor

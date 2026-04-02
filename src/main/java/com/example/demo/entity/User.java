@@ -1,6 +1,7 @@
 package com.example.demo.entity;
 
 
+import com.example.demo.entity.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,7 +30,13 @@ public class User {
     private String password;
 
     @OneToMany(mappedBy = "user")
-    private List<Notification> notifications = new ArrayList<Notification>();
+    private List<Notification> notifications = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Participant> participants = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user")
+    private List<MessageStatuses> messageStatuses = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private UserRole userRole;

@@ -1,9 +1,7 @@
 package com.example.demo.controllers;
 
 import com.example.demo.DTO.ErrorResponse;
-import com.example.demo.exceptions.EmailAlreadyExistsException;
-import com.example.demo.exceptions.NotificationNotFoundException;
-import com.example.demo.exceptions.UserNotFoundException;
+import com.example.demo.exceptions.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,21 +17,21 @@ import java.util.Map;
 public class GlobalExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<Object> handleUserNotFoundException(UserNotFoundException e) {
-        log.warn("User not found: {}", e.getMessage());
+        notFound(e, "User");
         ErrorResponse errorResponse = new ErrorResponse("User not found", e.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<Object> handleEmailAlreadyExistsException(EmailAlreadyExistsException e) {
-        log.warn("Email already exists: {}", e.getMessage());
+        alreadyExists(e, "Email");
         ErrorResponse errorResponse = new ErrorResponse("Email already exists", e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
     @ExceptionHandler(NotificationNotFoundException.class)
     public ResponseEntity<Object> handleNotificationNotFoundException(NotificationNotFoundException e) {
-        log.warn("Notification not found: {}", e.getMessage());
+        notFound(e, "Notification");
         ErrorResponse errorResponse = new ErrorResponse("Notification not found", e.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
@@ -45,6 +43,28 @@ public class GlobalExceptionHandler {
                 .put(error.getField(), error.getDefaultMessage()));
         log.warn("Validation errors: {}", errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    @ExceptionHandler(ChatNotFoundException.class)
+    public ResponseEntity<Object> handleChatNotFoundException(ChatNotFoundException e) {
+        notFound(e, "Chat");
+        ErrorResponse errorResponse = new ErrorResponse("User not found", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(ChatAlreadyExistsException.class)
+    public ResponseEntity<Object> handleChatAlreadyExistsException(ChatAlreadyExistsException e) {
+        alreadyExists(e, "Chat");
+        ErrorResponse errorResponse = new ErrorResponse("Email already exists", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+    private void notFound(Exception e, String objectName) {
+        log.warn("{} not found: {}", objectName, e.getMessage());
+    }
+
+    private void alreadyExists(Exception e, String objectName) {
+        log.warn("{} already exists: {}", objectName, e.getMessage());
     }
 }
 

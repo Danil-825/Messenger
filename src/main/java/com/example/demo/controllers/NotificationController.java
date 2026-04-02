@@ -2,7 +2,9 @@ package com.example.demo.controllers;
 
 import com.example.demo.DTO.UserDTO.NotificationCreateDTO;
 import com.example.demo.DTO.AdminDTO.NotificationResponseDTO;
+import com.example.demo.DTO.UserDTO.NotificationCreateInChatForUserDto;
 import com.example.demo.DTO.UserDTO.NotificationResponseForUserDTO;
+import com.example.demo.DTO.UserDTO.ResponseToNotificationCreationForUser;
 import com.example.demo.services.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,7 +25,6 @@ public class NotificationController {
         this.notificationService = notificationService;
     }
 
-
     @Operation(summary="Найти сообщение по id")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Сообщение найден"),
@@ -33,22 +34,9 @@ public class NotificationController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/notif/id/{id}")
-    public NotificationResponseDTO findById(@PathVariable Long id) {
+    public List<NotificationResponseDTO> findById(@PathVariable Long id) {
         return notificationService.findById(id);
     }
-
-
-    @Operation(summary="Вывести сообщения")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Сообщения найдены"),
-            @ApiResponse(responseCode = "403", description = "Нет прав доступа")
-    })
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/admin/notif/all")
-    public List<NotificationResponseDTO> findAll() {
-        return notificationService.findAll();
-    }
-
 
     @Operation(summary="Найти сообщение по message")
     @ApiResponses({
@@ -59,7 +47,7 @@ public class NotificationController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/notif/message/{message}")
-    public List<NotificationResponseDTO> findByTitle(@PathVariable String message) {
+    public List<NotificationResponseDTO> findByMessage(@PathVariable String message) {
         return notificationService.findByMessage(message);
     }
 
@@ -87,18 +75,39 @@ public class NotificationController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/notif/email/{email}")
-    public List<NotificationResponseForUserDTO> findByUserEmail(@Valid @PathVariable String email) {
+    public List<NotificationResponseDTO> findByUserEmail
+            (@Valid @PathVariable String email) {
         return notificationService.findByUserEmail(email);
     }
 
-    @Operation(summary = "Создать сообщение", description = "Регистрирует новое сообщение")
+    @Operation(summary = "Создать сообщение другому юзеру",
+            description = "Регистрирует новое сообщение и создает личный чат")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Сообщение создано"),
             @ApiResponse(responseCode = "400", description = "Невалидные данные"),
+            @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
-    @PostMapping("/user/notif/create")
-    public NotificationResponseForUserDTO create (@AuthenticationPrincipal UserDetails user, @Valid @RequestBody NotificationCreateDTO notificationCreateDTO) {
-        return notificationService.create(user.getUsername(), notificationCreateDTO);
+    @PostMapping("/user/notif/create_personal_chat")
+    public NotificationResponseForUserDTO createForCreatedPersonalChat
+            (@AuthenticationPrincipal UserDetails user,
+             @Valid @RequestBody NotificationCreateDTO notificationCreateDTO) {
+        return notificationService.createForCreatedPersonalChat
+                        (user.getUsername(), notificationCreateDTO);
+    }
+
+
+    @Operation(summary = "Создать сообщение в чат",
+            description = "Регистрирует новое сообщение и отправляет в чат")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Сообщение создано"),
+            @ApiResponse(responseCode = "400", description = "Невалидные данные"),
+            @ApiResponse(responseCode = "403", description = "Нет прав доступа")
+    })
+    @PostMapping("/user/notif/create_in_chat")
+    public ResponseToNotificationCreationForUser createInChatForUser
+            (@AuthenticationPrincipal UserDetails emailUser,
+             @Valid @RequestBody NotificationCreateInChatForUserDto dto) {
+        return notificationService.createInChatForUser(emailUser.getUsername(), dto);
     }
 
     @Operation(summary="Удаление сообщения", description = "Удаляет сообщение")
@@ -115,30 +124,30 @@ public class NotificationController {
     }
 
 
-    @Operation(summary="поиск всех сообщений юзера",
-            description = "ищет сообщения авторизованного юзера")
+    @Operation(summary="Ищет сообщение пользователя по названию",
+            description = "Ищет сообщение по сообщению")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Сообщения найдены"),
             @ApiResponse(responseCode = "404", description = "Сообщения не найдены"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
-    @GetMapping("/user/mynotif/all")
-    public List<NotificationResponseForUserDTO> findAllForUser (
-            @AuthenticationPrincipal UserDetails currentUser) {
-        return notificationService.findByUserEmail(currentUser.getUsername());
+    @GetMapping("/user/mynotif/message/{message}")
+    public List<NotificationResponseForUserDTO> findByMessageAndUserEmail
+            (@PathVariable String message,
+             @AuthenticationPrincipal UserDetails currentUser) {
+        return notificationService.findByMessageAndUserEmail(message, currentUser.getUsername());
     }
 
-
-    @Operation(summary="Ищет сообщение пользователя по названию",
-            description = "Ищет сообщение по названию авторизованного пользователя")
+    @Operation(summary="Ищет сообщение пользователя по чату",
+            description = "Ищет сообщение по чату")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Сообщения найдены"),
             @ApiResponse(responseCode = "404", description = "Сообщения не найдены"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
-    @GetMapping("/user/mynotif/{message}")
-    public List<NotificationResponseForUserDTO> findByMessageAndUserEmail (@PathVariable String message,
-                @AuthenticationPrincipal UserDetails currentUser) {
-        return notificationService.findByMessageAndUserEmail(message, currentUser.getUsername());
+    @GetMapping("/user/mynotif/chatId/{chatId}")
+    public List<NotificationResponseForUserDTO> findByChatIdAndUserEmail
+            (@Valid @PathVariable Long chatId, @AuthenticationPrincipal UserDetails userEmail) {
+        return notificationService.findByChatIdAndUserEmail(chatId, userEmail.getUsername());
     }
 }

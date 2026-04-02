@@ -2,20 +2,22 @@ package com.example.demo.services;
 
 import com.example.demo.DTO.UserDTO.NotificationCreateDTO;
 import com.example.demo.DTO.AdminDTO.NotificationResponseDTO;
+import com.example.demo.DTO.UserDTO.NotificationCreateInChatForUserDto;
 import com.example.demo.DTO.UserDTO.NotificationResponseForUserDTO;
+import com.example.demo.DTO.UserDTO.ResponseToNotificationCreationForUser;
+import com.example.demo.entity.Chat;
+import com.example.demo.entity.MessageStatuses;
 import com.example.demo.entity.Notification;
 import com.example.demo.entity.User;
-import com.example.demo.entity.UserRole;
+import com.example.demo.entity.enums.UserRole;
+import com.example.demo.exceptions.ChatAlreadyExistsException;
 import com.example.demo.exceptions.NotificationNotFoundException;
 import com.example.demo.exceptions.UserNotFoundException;
-import com.example.demo.repository.NotificationRepository;
-import com.example.demo.repository.UserRepository;
+import com.example.demo.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -24,43 +26,95 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final ChatService chatService;
+    private final ChatRepository chatRepository;
+    private final MessageStatusesRepository messageStatusesRepository;
+    private final ParticipantRepository participantRepository;
+    private final AsyncNotificationService asyncNotificationService;
 
-    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
+    public NotificationService(NotificationRepository notificationRepository,
+                               UserRepository userRepository, ChatService chatService,
+                               ChatRepository chatRepository,
+                               MessageStatusesRepository messageStatusesRepository,
+                               ParticipantRepository participantRepository,
+                               AsyncNotificationService asyncNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.chatService = chatService;
+        this.chatRepository = chatRepository;
+        this.messageStatusesRepository = messageStatusesRepository;
+        this.participantRepository = participantRepository;
+        this.asyncNotificationService = asyncNotificationService;
     }
 
 
     @Transactional(rollbackFor = Exception.class)
-    public NotificationResponseForUserDTO create (String emailUser, NotificationCreateDTO notificationCreateDTO) {
+    public NotificationResponseForUserDTO createForCreatedPersonalChat
+            (String emailUser, NotificationCreateDTO dto) {
         User userSender = userRepository.findByEmail(emailUser)
-                .orElseThrow(() -> new UserNotFoundException("not found"));
-        User anotherUser = userRepository.findByEmail(notificationCreateDTO.getAnotherEmailUser())
-                .orElseThrow(() -> {
-                    log.warn("User not found");
-                    return new UserNotFoundException("User not found");
-                });
-        if (anotherUser.getUserRole().equals(UserRole.USER)) {
-            Notification notification = new Notification();
-            notification.setMessage(notificationCreateDTO.getMessage());
-            notification.setStatus("отправлено");
-            notification.setUser(userSender);
-            notification.setAnotherUser(anotherUser);
+                .orElseThrow(() ->
+                        new UserNotFoundException("Not found user by email: "
+                                + emailUser));
+        User anotherUser = userRepository
+                .findByEmail(dto.getAnotherEmailUser())
+                .orElseThrow(() ->
+                        new UserNotFoundException("Not found user by email: "
+                                + dto.getAnotherEmailUser()));
+        List<MessageStatuses> messageStatuses;
+        if (!chatRepository.existsPersonalChatBetweenUsers
+                (emailUser, dto.getAnotherEmailUser()) &&
+                anotherUser.getUserRole().equals(UserRole.USER)) {
+            Chat chat = chatService.createPersonalChat
+                    (emailUser, dto.getAnotherEmailUser());
+            Notification notification = Notification.builder()
+                    .message(dto.getMessage())
+                    .user(userSender)
+                    .chat(chat)
+                    .build();
             notificationRepository.save(notification);
 
-            Notification anotherNotification = new Notification();
-            anotherNotification.setMessage(notificationCreateDTO.getMessage());
-            anotherNotification.setStatus("получено");
-            anotherNotification.setUser(anotherUser);
-            anotherNotification.setAnotherUser(userSender);
-            notificationRepository.save(anotherNotification);
+            messageStatuses = List.of(
+                    MessageStatuses.builder()
+                            .notification(notification)
+                            .user(userSender)
+                            .status("отправлено")
+                            .build(),
+                    MessageStatuses.builder()
+                            .notification(notification)
+                            .user(anotherUser)
+                            .status("получено")
+                            .build()
+            );
 
-            return new NotificationResponseForUserDTO(notification);
+            messageStatusesRepository.saveAll(messageStatuses);
+        } else {
+            log.warn("Такой чат уже есть");
+            throw new ChatAlreadyExistsException("Такой чат уже есть");
         }
-        else {
-            log.warn("Пользователь является админом");
-            throw new RuntimeException("Not found");
-        }
+        return new NotificationResponseForUserDTO(messageStatuses.get(0));
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ResponseToNotificationCreationForUser createInChatForUser
+            (String emailUser, NotificationCreateInChatForUserDto dto) {
+        User userSender = userRepository.findByEmail(emailUser)
+                .orElseThrow(() ->
+                        new UserNotFoundException("Not found user by email: " + emailUser));
+        Chat chat = chatRepository.findById(dto.getChatId())
+                .orElseThrow(() -> new RuntimeException("Chat not found"));
+
+        Notification notification = Notification.builder()
+                .message(dto.getMessage())
+                .user(userSender)
+                .chat(chat)
+                .build();
+        notificationRepository.save(notification);
+
+        List<Long> participantsId = participantRepository.findUserIdsByChatId(chat.getId());
+
+        asyncNotificationService.createInChatForUser
+                (notification, userSender.getId(), participantsId);
+        return new ResponseToNotificationCreationForUser(notification);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -68,59 +122,80 @@ public class NotificationService {
         notificationRepository.deleteById(notificationId);
     }
 
-
-    public List<NotificationResponseDTO> findAll() {
-        checkNotification(notificationRepository.findAll());
-        return notificationRepository.findAll()
-                .stream()
-                .map(NotificationResponseDTO::new)
-                .collect(Collectors.toList());
-    }
-
     public List<NotificationResponseDTO> findByUserId(Long userId) {
-        List<Notification> notifications = notificationRepository.findByUserId(userId);
-        checkNotification(notifications);
+        List<MessageStatuses> notifications = messageStatusesRepository.findByUserId(userId);
+        checkNotEmpty(notifications);
         return notifications.stream()
                 .map(NotificationResponseDTO::new)
                 .collect(Collectors.toList());
     }
 
-    public List<NotificationResponseForUserDTO> findByUserEmail(String email) {
-        List<Notification> notifications = notificationRepository.findByUserEmail(email);
-        checkNotification(notifications);
+    public List<NotificationResponseDTO> findByUserEmail(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UserNotFoundException
+                        ("Not found user by email: " + userEmail));
+        List<MessageStatuses> notifications = messageStatusesRepository
+                .findByUserEmail(user.getEmail());
+        checkNotEmpty(notifications);
         return notifications.stream()
-                .map(NotificationResponseForUserDTO::new)
+                .map(NotificationResponseDTO::new)
                 .collect(Collectors.toList());
     }
 
-    public NotificationResponseDTO findById(Long notificationId) {
-        Optional<Notification> notification = notificationRepository.findById(notificationId);
-        Notification notificationEntity = notification
-                .orElseThrow(() -> new RuntimeException("not found"));
-        return new NotificationResponseDTO(notificationEntity);
+    public List<NotificationResponseDTO> findById(Long notificationId) {
+        List<MessageStatuses> notifications = messageStatusesRepository
+                .findByNotificationId(notificationId);
+        checkNotEmpty(notifications);
+        return notifications.stream()
+                .map(NotificationResponseDTO::new)
+                .collect(Collectors.toList());
+
     }
 
     public List<NotificationResponseDTO> findByMessage(String message) {
-        List<Notification> notifications = notificationRepository.findByMessage(message);
-        checkNotification(notifications);
+        List<MessageStatuses> notifications = messageStatusesRepository
+                .findByNotificationMessage(message);
+        checkNotEmpty(notifications);
         return notifications.stream()
                 .map(NotificationResponseDTO::new)
-                . collect(Collectors.toList());
+                .collect(Collectors.toList());
     }
 
-    public List<NotificationResponseForUserDTO> findByMessageAndUserEmail(String message, String userEmail) {
-        List<Notification> notifications = notificationRepository.findByMessageAndUserEmail(message, userEmail);
-        checkNotification(notifications);
+    public List<NotificationResponseForUserDTO> findByMessageAndUserEmail
+            (String message, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UserNotFoundException
+                        ("Not found user by email: " + userEmail));
+        List<MessageStatuses> notifications = messageStatusesRepository
+                .findByUserIdAndNotificationId_MessageContaining(user.getId(), message);
+        checkNotEmpty(notifications);
         return notifications.stream()
                 .map(NotificationResponseForUserDTO::new)
                 .collect(Collectors.toList());
     }
 
+    public List<NotificationResponseForUserDTO> findByChatIdAndUserEmail
+            (Long chatId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UserNotFoundException
+                        ("Not found user by email: " + userEmail));
+        Chat chat = chatRepository
+                .findByParticipantUserEmailAndId(chatId, user.getEmail())
+                .orElseThrow(() -> new RuntimeException("Not found chat"));
+        List<MessageStatuses> notifications = messageStatusesRepository
+                .findByChatIdAndUserEmail(chat.getId(), user.getEmail());
+        checkNotEmpty(notifications);
+        return notifications.stream()
+                .map(NotificationResponseForUserDTO::new)
+                .collect(Collectors.toList());
+     }
 
-    private void checkNotification(List<Notification> notification) {
-        if (notification.isEmpty()) {
-            log.warn("Not found");
-            throw new NotificationNotFoundException("Notification not found");
+
+    private <T> void checkNotEmpty(List<T> list) {
+        if (list == null || list.isEmpty()) {
+            log.warn("Notifications not found");
+            throw new NotificationNotFoundException("Notifications not found");
         }
     }
+
 }

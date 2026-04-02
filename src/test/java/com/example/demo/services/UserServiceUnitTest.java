@@ -6,7 +6,7 @@ import com.example.demo.DTO.AdminDTO.UserResponseDTO;
 import com.example.demo.DTO.UserDTO.ForUserResponse;
 import com.example.demo.DTO.UserDTO.ForUserUpdateDto;
 import com.example.demo.entity.User;
-import com.example.demo.entity.UserRole;
+import com.example.demo.entity.enums.UserRole;
 import com.example.demo.exceptions.EmailAlreadyExistsException;
 import com.example.demo.exceptions.UserNotFoundException;
 import com.example.demo.repository.UserRepository;

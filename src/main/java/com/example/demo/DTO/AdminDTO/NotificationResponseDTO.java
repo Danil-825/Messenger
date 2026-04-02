@@ -1,6 +1,6 @@
 package com.example.demo.DTO.AdminDTO;
 
-import com.example.demo.entity.Notification;
+import com.example.demo.entity.MessageStatuses;
 import lombok.Data;
 
 @Data
@@ -11,12 +11,14 @@ public class NotificationResponseDTO {
     private String status;
     private Long anotherUserId;
 
-    public NotificationResponseDTO(Notification notification) {
-        this.id = notification.getId();
-        this.message = notification.getMessage();
+    public NotificationResponseDTO(MessageStatuses notification) {
+        this.id = notification.getNotification().getId();
+        this.message = notification.getNotification().getMessage();
         this.status = notification.getStatus();
-        this.userId = notification.getUser() != null ? notification.getUser().getId() : null;
-        this.anotherUserId = notification.getAnotherUser() != null ? notification.getAnotherUser().getId() : null;
+        this.userId = notification.getNotification().getUser().getId() != null
+                ? notification.getNotification().getUser().getId() : null;
+        this.anotherUserId = notification.getUser().getId() != null
+                ? notification.getUser().getId() : null;
     }
 
 }
