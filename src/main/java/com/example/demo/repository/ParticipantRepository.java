@@ -21,12 +21,12 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
 
     List<Participant> findByChatId(Long chatId);
 
-    @Query("SELECT p.user.email FROM Participant p " +
+    @Query("SELECT p.user.name FROM Participant p " +
             "WHERE p.chat.id = :chatId AND p.user.id != :userId")
-    Optional<String> findCompanionEmailForPersonalChat(@Param("chatId") Long chatId,
+    Optional<String> findCompanionNameForPersonalChat(@Param("chatId") Long chatId,
                                                        @Param("userId") Long userId);
 
-    @Query("SELECT p.chat.id, p.user.email FROM Participant p " +
+    @Query("SELECT p.chat.id, p.user.name FROM Participant p " +
             "WHERE p.chat.id IN :chatIds AND p.user.id != :userId")
     List<Object[]> findCompanionsForPersonalChats(@Param("chatIds") List<Long> chatIds,
                                                   @Param("userId") Long userId);

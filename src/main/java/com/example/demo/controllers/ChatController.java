@@ -120,7 +120,7 @@ public class ChatController {
             @ApiResponse(responseCode = "404", description = "Чаты не найдены"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
-    @GetMapping("/user/chats")
+    @GetMapping("/my_chats")
     public List<ChatResponseForUserDto> findAllChatForUser
             (@AuthenticationPrincipal UserDetails currentEmail) {
         return chatService.findAllChatForUser(currentEmail.getUsername());

@@ -3,6 +3,7 @@ package com.example.demo.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -13,6 +14,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @Table(name = "chats")
 public class Chat {
     @Id
@@ -23,9 +25,11 @@ public class Chat {
 
     private String type;
 
+    @Builder.Default
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Notification> notifications = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL)
     private List<Participant> participants = new ArrayList<>();
 }

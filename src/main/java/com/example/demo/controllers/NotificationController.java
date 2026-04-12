@@ -1,5 +1,7 @@
 package com.example.demo.controllers;
 
+import com.example.demo.DTO.AdminDTO.NotificationCreateAllUsersDto;
+import com.example.demo.DTO.AdminDTO.NotificationsAllUsersResponseDto;
 import com.example.demo.DTO.UserDTO.NotificationCreateDTO;
 import com.example.demo.DTO.AdminDTO.NotificationResponseDTO;
 import com.example.demo.DTO.UserDTO.NotificationCreateInChatForUserDto;
@@ -80,6 +82,22 @@ public class NotificationController {
         return notificationService.findByUserEmail(email);
     }
 
+    @Operation(summary = "Создать сообщение всем юзерам",
+            description = "Регистрирует новое сообщение для всех юзеров" +
+                    " и если надо создает личный чат")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Сообщения созданы"),
+            @ApiResponse(responseCode = "400", description = "Невалидные данные"),
+            @ApiResponse(responseCode = "403", description = "Нет прав доступа")
+    })
+    @PostMapping("/admin/message/create")
+    public NotificationsAllUsersResponseDto createToAllUsersForAdmin
+            (@AuthenticationPrincipal UserDetails emailAdmin,
+             @Valid @RequestBody NotificationCreateAllUsersDto dto) {
+        return notificationService.createToAllUsersForAdmin
+                (emailAdmin.getUsername(), dto);
+    }
+
     @Operation(summary = "Создать сообщение другому юзеру",
             description = "Регистрирует новое сообщение и создает личный чат")
     @ApiResponses({
@@ -103,7 +121,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "400", description = "Невалидные данные"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
-    @PostMapping("/user/notif/create_in_chat")
+    @PostMapping("/notification/create_in_chat")
     public ResponseToNotificationCreationForUser createInChatForUser
             (@AuthenticationPrincipal UserDetails emailUser,
              @Valid @RequestBody NotificationCreateInChatForUserDto dto) {

@@ -16,6 +16,7 @@ import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,6 +59,7 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(timeout = 10, rollbackFor = Exception.class)
     public ChatResponseForUserDto createGroupChat(String email, ChatCreateDtoForUser dto) {
         User emailUser = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -102,7 +104,7 @@ public class ChatService {
         List<Chat> chats = chatRepository.findByParticipantUserEmail(currentEmail);
         checkNotEmpty(chats);
 
-        Map<Long, String> companionEmails = getCompanionEmailsForChats(chats, user.getId());
+        Map<Long, String> companionEmails = getCompanionNamesForChats(chats, user.getId());
         return chats.stream()
                 .map(chat -> toChatResponseDto(chat, companionEmails))
                 .collect(Collectors.toList());
@@ -115,7 +117,7 @@ public class ChatService {
         List<Chat> chats = chatRepository
                 .findByTitleAndParticipantEmail(title, currentEmail);
         checkNotEmpty(chats);
-        Map<Long, String> companionEmails = getCompanionEmailsForChats(chats, user.getId());
+        Map<Long, String> companionEmails = getCompanionNamesForChats(chats, user.getId());
         return chats.stream()
                 .map(chat -> toChatResponseDto(chat, companionEmails))
                 .collect(Collectors.toList());
@@ -191,7 +193,7 @@ public class ChatService {
         String displayName;
         if (chatDto.getType().equals("PERSONAL")) {
             displayName = participantRepository
-                    .findCompanionEmailForPersonalChat(chatDto.getId(), userId)
+                    .findCompanionNameForPersonalChat(chatDto.getId(), userId)
                     .orElse("Unknown User");
         } else {
             displayName = chatDto.getTitle();
@@ -202,11 +204,12 @@ public class ChatService {
                 .build();
     }
 
-    private ChatResponseForUserDto toChatResponseDto(Chat chat, Map<Long, String> companionEmails) {
+    private ChatResponseForUserDto toChatResponseDto
+            (Chat chat, Map<Long, String> companionNames) {
         String displayName;
 
         if (chat.getType().equals("PERSONAL")) {
-            displayName = companionEmails.getOrDefault(chat.getId(), "Unknown User");
+            displayName = companionNames.getOrDefault(chat.getId(), "Unknown User");
         } else {
             displayName = chat.getTitle();
         }
@@ -217,7 +220,7 @@ public class ChatService {
                 .build();
     }
 
-    private Map<Long, String> getCompanionEmailsForChats(List<Chat> chats, Long userId) {
+    private Map<Long, String> getCompanionNamesForChats(List<Chat> chats, Long userId) {
         List<Long> personalChatIds = chats.stream()
                 .filter(chat -> chat.getType().equals("PERSONAL"))
                 .map(Chat::getId)

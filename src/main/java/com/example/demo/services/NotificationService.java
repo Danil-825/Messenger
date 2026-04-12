@@ -1,5 +1,7 @@
 package com.example.demo.services;
 
+import com.example.demo.DTO.AdminDTO.NotificationCreateAllUsersDto;
+import com.example.demo.DTO.AdminDTO.NotificationsAllUsersResponseDto;
 import com.example.demo.DTO.UserDTO.NotificationCreateDTO;
 import com.example.demo.DTO.AdminDTO.NotificationResponseDTO;
 import com.example.demo.DTO.UserDTO.NotificationCreateInChatForUserDto;
@@ -31,13 +33,14 @@ public class NotificationService {
     private final MessageStatusesRepository messageStatusesRepository;
     private final ParticipantRepository participantRepository;
     private final AsyncNotificationService asyncNotificationService;
+    private final BroadcastService broadcastService;
 
     public NotificationService(NotificationRepository notificationRepository,
                                UserRepository userRepository, ChatService chatService,
                                ChatRepository chatRepository,
                                MessageStatusesRepository messageStatusesRepository,
                                ParticipantRepository participantRepository,
-                               AsyncNotificationService asyncNotificationService) {
+                               AsyncNotificationService asyncNotificationService, BroadcastService broadcastService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.chatService = chatService;
@@ -45,10 +48,11 @@ public class NotificationService {
         this.messageStatusesRepository = messageStatusesRepository;
         this.participantRepository = participantRepository;
         this.asyncNotificationService = asyncNotificationService;
+        this.broadcastService = broadcastService;
     }
 
 
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(timeout = 5, rollbackFor = Exception.class)
     public NotificationResponseForUserDTO createForCreatedPersonalChat
             (String emailUser, NotificationCreateDTO dto) {
         User userSender = userRepository.findByEmail(emailUser)
@@ -85,7 +89,6 @@ public class NotificationService {
                             .status("получено")
                             .build()
             );
-
             messageStatusesRepository.saveAll(messageStatuses);
         } else {
             log.warn("Такой чат уже есть");
@@ -94,7 +97,7 @@ public class NotificationService {
         return new NotificationResponseForUserDTO(messageStatuses.get(0));
     }
 
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(timeout = 5, rollbackFor = Exception.class)
     public ResponseToNotificationCreationForUser createInChatForUser
             (String emailUser, NotificationCreateInChatForUserDto dto) {
         User userSender = userRepository.findByEmail(emailUser)
@@ -112,9 +115,26 @@ public class NotificationService {
 
         List<Long> participantsId = participantRepository.findUserIdsByChatId(chat.getId());
 
-        asyncNotificationService.createInChatForUser
+        asyncNotificationService.createStatusesForParticipants
                 (notification, userSender.getId(), participantsId);
         return new ResponseToNotificationCreationForUser(notification);
+    }
+
+
+    public NotificationsAllUsersResponseDto createToAllUsersForAdmin
+            (String emailAdmin, NotificationCreateAllUsersDto dto) {
+        User user = userRepository.findByEmail(emailAdmin)
+                .orElseThrow(() -> new UserNotFoundException("Admin not found"));
+        List<User> userAll;
+        if (dto.getEmailsUsers().isEmpty())
+            {userAll = userRepository.AllUsers();}
+        else {userAll = userRepository.findByEmailIn(dto.getEmailsUsers());}
+        int count = userAll.size();
+        broadcastService.broadcastToAllUsers(user, dto.getMessage(), userAll);
+        return new NotificationsAllUsersResponseDto(
+                dto.getMessage(),
+                NotificationsAllUsersResponseDto.generateDescription(count)
+        );
     }
 
     @Transactional(rollbackFor = Exception.class)
