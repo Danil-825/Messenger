@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -36,7 +37,7 @@ public class NotificationController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/notif/id/{id}")
-    public List<NotificationResponseDTO> findById(@PathVariable Long id) {
+    public NotificationResponseDTO findById(@PathVariable Long id) {
         return notificationService.findById(id);
     }
 
@@ -90,6 +91,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "400", description = "Невалидные данные"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/admin/message/create")
     public NotificationsAllUsersResponseDto createToAllUsersForAdmin
             (@AuthenticationPrincipal UserDetails emailAdmin,
@@ -105,6 +107,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "400", description = "Невалидные данные"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/user/notif/create_personal_chat")
     public NotificationResponseForUserDTO createForCreatedPersonalChat
             (@AuthenticationPrincipal UserDetails user,
@@ -121,6 +124,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "400", description = "Невалидные данные"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/notification/create_in_chat")
     public ResponseToNotificationCreationForUser createInChatForUser
             (@AuthenticationPrincipal UserDetails emailUser,
@@ -136,6 +140,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
     @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/admin/notif/del/{id}")
     public void delete (@PathVariable Long id) {
         notificationService.delete(id);

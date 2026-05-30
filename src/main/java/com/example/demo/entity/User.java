@@ -18,7 +18,8 @@ import java.util.List;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq")
+    @SequenceGenerator(name = "seq", allocationSize = 20)
     private Long id;
 
     private String name;
@@ -26,16 +27,18 @@ public class User {
     @Column(unique = true)
     private String email;
 
-    @Column(unique = true)
     private String password;
 
-    @OneToMany(mappedBy = "user")
+    @OneToMany(mappedBy = "user", cascade = {CascadeType.PERSIST,
+            CascadeType.MERGE}, fetch = FetchType.LAZY)
     private List<Notification> notifications = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "user", cascade = {CascadeType.PERSIST, CascadeType.MERGE,
+            CascadeType.REMOVE}, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<Participant> participants = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user")
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY,
+            orphanRemoval = true, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<MessageStatuses> messageStatuses = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)

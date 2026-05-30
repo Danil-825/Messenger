@@ -1,6 +1,7 @@
 package com.example.demo.repository;
 
 import com.example.demo.entity.Participant;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,12 +14,17 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
 
     boolean existsByChatIdAndUserId(Long chatId, Long userId);
 
-    @Query("SELECT p.user.id FROM Participant p WHERE p.chat.id = :chatId")
-    List<Long> findUserIdsByChatId(@Param("chatId") Long chatId);
+    @Query("SELECT p FROM Participant p JOIN FETCH p.user WHERE p.chat.id = :chatId")
+    List<Participant> findUsersByChatId(@Param("chatId") Long chatId);
+
+    @EntityGraph(attributePaths = {"chat", "user"})
+    @Query("SELECT p FROM Participant p WHERE p.chat.id = :chatId AND p.user.email = :email")
+    List<Participant> findByChatIdAndUserEmail(@Param("chatId") Long chatId, @Param("email") String email);
 
     @Query("SELECT p.user.email FROM Participant p WHERE p.chat.id = :chatId AND p.chat.type = 'PERSONAL'")
     List<String> findUserEmailsByChatId(@Param("chatId") Long chatId);
 
+    @EntityGraph(attributePaths = {"chat", "user"})
     List<Participant> findByChatId(Long chatId);
 
     @Query("SELECT p.user.name FROM Participant p " +

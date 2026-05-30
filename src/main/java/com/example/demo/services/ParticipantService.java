@@ -3,15 +3,14 @@ package com.example.demo.services;
 import com.example.demo.DTO.AdminDTO.ParticipantResponseForAdminDto;
 import com.example.demo.DTO.UserDTO.ParticipantResponseForUserDto;
 import com.example.demo.entity.Participant;
-import com.example.demo.entity.User;
 import com.example.demo.exceptions.NotificationNotFoundException;
-import com.example.demo.exceptions.UserNotFoundException;
 import com.example.demo.repository.ParticipantRepository;
-import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,23 +19,20 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ParticipantService {
     private final ParticipantRepository participantRepository;
-    private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
     public List<ParticipantResponseForUserDto> findByChatIdForUser(String email, Long chatId) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + email));
 
-        boolean isParticipant = participantRepository.existsByChatIdAndUserId(chatId, user.getId());
-        if (!isParticipant) {
+        List<Participant> participants = participantRepository.findByChatIdAndUserEmail(chatId, email);
+        if (participants.isEmpty()) {
             throw new AccessDeniedException("Вы не являетесь участником чата: " + chatId);
         }
-        List<Participant> participants = participantRepository.findByChatId(chatId);
-        checkNotEmpty(participants);
         return participants.stream()
                 .map(ParticipantResponseForUserDto::new)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<ParticipantResponseForAdminDto> findByChatId(Long chatId) {
         List<Participant> participants = participantRepository.findByChatId(chatId);
         checkNotEmpty(participants);

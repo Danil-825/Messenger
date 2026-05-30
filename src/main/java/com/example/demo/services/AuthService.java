@@ -6,31 +6,41 @@ import com.example.demo.DTO.UserDTO.RegisterRequest;
 import com.example.demo.configurations.JwtTokenProvider;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
-import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import static com.example.demo.entity.enums.UserRole.USER;
 
 @Service
-@AllArgsConstructor
 public class AuthService {
 
+    @Lazy
+    @Autowired
+    private AuthService self;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
 
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider, AuthenticationManager authenticationManager) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.authenticationManager = authenticationManager;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public JwtResponse register(RegisterRequest request) {
-        // Проверяем, нет ли уже такого пользователя
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("This email already exists");
         }
 
-        // Создаем нового пользователя
         User user = new User();
         user.setName(request.getName());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -39,9 +49,10 @@ public class AuthService {
 
         userRepository.save(user);
 
-        return login(new LoginRequest(request.getEmail(), request.getPassword()));
+        return self.login(new LoginRequest(request.getEmail(), request.getPassword()));
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public JwtResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -49,7 +60,6 @@ public class AuthService {
                         request.getPassword()
                 )
         );
-
         String token = jwtTokenProvider.createToken(
                 request.getEmail(),
                 authentication.getAuthorities()

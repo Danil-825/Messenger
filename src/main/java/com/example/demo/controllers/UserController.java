@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -90,6 +91,7 @@ public class UserController {
             @ApiResponse(responseCode = "409", description = "такой email уже есть")
     })
     @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/admin/create")
     public UserResponseDTO create(@Valid @RequestBody UserCreateDto user) {
         return userService.create(user);
@@ -119,6 +121,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
     @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/admin/del/{id}")
     public void delete(@PathVariable Long id) {
         userService.deleteById(id);

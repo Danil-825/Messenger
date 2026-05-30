@@ -7,23 +7,23 @@ import com.example.demo.DTO.AdminDTO.NotificationResponseDTO;
 import com.example.demo.DTO.UserDTO.NotificationCreateInChatForUserDto;
 import com.example.demo.DTO.UserDTO.NotificationResponseForUserDTO;
 import com.example.demo.DTO.UserDTO.ResponseToNotificationCreationForUser;
-import com.example.demo.entity.Chat;
-import com.example.demo.entity.MessageStatuses;
-import com.example.demo.entity.Notification;
-import com.example.demo.entity.User;
+import com.example.demo.entity.*;
 import com.example.demo.entity.enums.UserRole;
 import com.example.demo.exceptions.ChatAlreadyExistsException;
 import com.example.demo.exceptions.NotificationNotFoundException;
 import com.example.demo.exceptions.UserNotFoundException;
+import com.example.demo.mypackage.utils.CollectionUtils;
 import com.example.demo.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@Transactional(readOnly = true)
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -97,6 +97,7 @@ public class NotificationService {
         return new NotificationResponseForUserDTO(messageStatuses.get(0));
     }
 
+
     @Transactional(timeout = 5, rollbackFor = Exception.class)
     public ResponseToNotificationCreationForUser createInChatForUser
             (String emailUser, NotificationCreateInChatForUserDto dto) {
@@ -113,37 +114,49 @@ public class NotificationService {
                 .build();
         notificationRepository.save(notification);
 
-        List<Long> participantsId = participantRepository.findUserIdsByChatId(chat.getId());
+        List<Participant> participants = participantRepository.findUsersByChatId(chat.getId());
 
         asyncNotificationService.createStatusesForParticipants
-                (notification, userSender.getId(), participantsId);
+                (notification, userSender.getId(), participants);
         return new ResponseToNotificationCreationForUser(notification);
     }
 
-
+    @Transactional(timeout = 30, rollbackFor = Exception.class)
     public NotificationsAllUsersResponseDto createToAllUsersForAdmin
             (String emailAdmin, NotificationCreateAllUsersDto dto) {
         User user = userRepository.findByEmail(emailAdmin)
                 .orElseThrow(() -> new UserNotFoundException("Admin not found"));
-        List<User> userAll;
-        if (dto.getEmailsUsers().isEmpty())
-            {userAll = userRepository.AllUsers();}
-        else {userAll = userRepository.findByEmailIn(dto.getEmailsUsers());}
-        int count = userAll.size();
-        broadcastService.broadcastToAllUsers(user, dto.getMessage(), userAll);
+        List<User> users = dto.getEmailsUsers().isEmpty()
+                ? userRepository.AllUsers()
+                : userRepository.findByEmailIn(dto.getEmailsUsers());
+        List<List<User>> batches = CollectionUtils.partition(users, 100);
+        List<CompletableFuture<Integer>> futures = batches.stream()
+                .map(batch -> broadcastService.sendBatchAsync(user, dto.getMessage(), batch))
+                .toList();
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        int totalErrors = futures.stream()
+                .map(CompletableFuture::join)
+                .mapToInt(Integer::intValue)
+                .sum();
+
         return new NotificationsAllUsersResponseDto(
                 dto.getMessage(),
-                NotificationsAllUsersResponseDto.generateDescription(count)
+                NotificationsAllUsersResponseDto.generateDescription(totalErrors)
         );
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void delete (Long notificationId) {
+        messageStatusesRepository.findByNotificationId(notificationId)
+                        .orElseThrow(() -> new NotificationNotFoundException("Notification not found"));
         notificationRepository.deleteById(notificationId);
     }
 
     public List<NotificationResponseDTO> findByUserId(Long userId) {
-        List<MessageStatuses> notifications = messageStatusesRepository.findByUserId(userId);
+        List<MessageStatuses> notifications = messageStatusesRepository
+                .findByUserId(userId);
         checkNotEmpty(notifications);
         return notifications.stream()
                 .map(NotificationResponseDTO::new)
@@ -162,13 +175,11 @@ public class NotificationService {
                 .collect(Collectors.toList());
     }
 
-    public List<NotificationResponseDTO> findById(Long notificationId) {
-        List<MessageStatuses> notifications = messageStatusesRepository
-                .findByNotificationId(notificationId);
-        checkNotEmpty(notifications);
-        return notifications.stream()
-                .map(NotificationResponseDTO::new)
-                .collect(Collectors.toList());
+    public NotificationResponseDTO findById(Long notificationId) {
+        MessageStatuses notifications = messageStatusesRepository
+                .findByNotificationId(notificationId)
+                .orElseThrow(() -> new NotificationNotFoundException("Notification not found"));
+        return new NotificationResponseDTO(notifications);
 
     }
 

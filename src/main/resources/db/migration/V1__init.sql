@@ -5,8 +5,7 @@ create table if not exists users
     name      varchar(255),
     email     varchar(255)
         unique,
-    password  varchar(255)
-        unique,
+    password  varchar(255),
     user_role varchar(255)
 );
 

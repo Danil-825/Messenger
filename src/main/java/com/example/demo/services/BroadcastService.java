@@ -2,8 +2,6 @@ package com.example.demo.services;
 
 import com.example.demo.entity.*;
 import com.example.demo.entity.enums.ChatRole;
-import com.example.demo.exceptions.ChatNotFoundException;
-import com.example.demo.mypackage.utils.CollectionUtils;
 import com.example.demo.repository.ChatRepository;
 import com.example.demo.repository.MessageStatusesRepository;
 import com.example.demo.repository.NotificationRepository;
@@ -12,8 +10,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import java.util.ArrayList;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -26,66 +27,67 @@ public class BroadcastService {
     private final ParticipantRepository participantRepository;
 
     @Async("broadcastExecutor")
-    public void broadcastToAllUsers(User userAdmin, String message, List<User> allUsers) {
-        List<List<User>> batches = CollectionUtils.partition(allUsers, 100);
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public CompletableFuture<Integer> sendBatchAsync(User userAdmin, String message, List<User> batch) {
+        int errors = 0;
+        for (User user : batch) {
+            try {
+                sendToSingleUser(userAdmin, message, user);
+            } catch (Exception e) {
+                errors++;
+                log.error("Ошибка отправки пользователю {}: {}", user.getId(), e.getMessage(), e);
+            }
+        }
+        return CompletableFuture.completedFuture(errors);
+    }
 
-        batches.parallelStream().forEach(batch -> {
-            List<MessageStatuses> statuses = new ArrayList<>();
-            List<Chat> chats = new ArrayList<>();
-            List<Participant> participants = new ArrayList<>();
-            List<Notification> notifications = new ArrayList<>();
-            Chat chat;
-            for (User user : batch) {
-                if (!chatRepository.existsPersonalChatBetweenUsers(user.getEmail(), userAdmin.getEmail())) {
-                    chat = Chat.builder()
-                            .title(null)
-                            .type("PERSONAL")
-                            .build();
-                    chats.add(chat);
-                } else {
-                    chat = chatRepository.findPersonalChatByUserEmails(user.getEmail(), userAdmin.getEmail())
-                            .orElseThrow(() -> new ChatNotFoundException("Chat not found"));
-                }
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendToSingleUser(User userAdmin, String message, User user) {
+        Chat chat = getOrCreatePersonalChat(userAdmin, user);
 
-                Participant participantAdmin = Participant.builder()
-                        .user(userAdmin)
-                        .chat(chat)
-                        .chatRole(ChatRole.ADMIN)
-                        .build();
-                participants.add(participantAdmin);
-
-                Participant participantUser = Participant.builder()
-                        .user(user)
-                        .chat(chat)
-                        .chatRole(ChatRole.MEMBER)
-                        .build();
-                participants.add(participantUser);
-
-                Notification notification = Notification.builder()
+        Notification notification = notificationRepository.save(
+                Notification.builder()
                         .message(message)
                         .user(user)
                         .chat(chat)
-                        .build();
-                notifications.add(notification);
+                        .build()
+        );
 
-                MessageStatuses statusSend = MessageStatuses.builder()
-                        .notification(notification)
-                        .user(userAdmin)
-                        .status("отправлено")
-                        .build();
-                statuses.add(statusSend);
+        messageStatusesRepository.save(MessageStatuses.builder()
+                .notification(notification)
+                .user(userAdmin)
+                .status("отправлено")
+                .build());
 
-                MessageStatuses statusReceive = MessageStatuses.builder()
-                        .notification(notification)
-                        .user(user)
-                        .status("получено")
-                        .build();
-                statuses.add(statusReceive);
-            }
-            chatRepository.saveAll(chats);
-            participantRepository.saveAll(participants);
-            notificationRepository.saveAll(notifications);
-            messageStatusesRepository.saveAll(statuses);
-        });
+        messageStatusesRepository.save(MessageStatuses.builder()
+                .notification(notification)
+                .user(user)
+                .status("получено")
+                .build());
+    }
+
+    private Chat getOrCreatePersonalChat(User userAdmin, User user) {
+        return chatRepository.findPersonalChatByUserEmails(user.getEmail(), userAdmin.getEmail())
+                .orElseGet(() -> {
+                    Chat newChat = Chat.builder()
+                            .title(null)
+                            .type("PERSONAL")
+                            .build();
+                    Chat savedChat = chatRepository.save(newChat);
+
+                    participantRepository.save(Participant.builder()
+                            .user(userAdmin)
+                            .chat(savedChat)
+                            .chatRole(ChatRole.ADMIN)
+                            .build());
+
+                    participantRepository.save(Participant.builder()
+                            .user(user)
+                            .chat(savedChat)
+                            .chatRole(ChatRole.MEMBER)
+                            .build());
+
+                    return savedChat;
+                });
     }
 }

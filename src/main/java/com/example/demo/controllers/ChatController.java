@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -81,6 +82,7 @@ public class ChatController {
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
     @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/admin/chat/delete/{chatId}")
     public void deleteGroupChat(@PathVariable Long chatId) {
         chatService.deleteGroupChat(chatId);
@@ -94,6 +96,7 @@ public class ChatController {
             @ApiResponse(responseCode = "400", description = "Невалидные данные"),
             @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     })
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/user/group_chat/create")
     public ChatResponseForUserDto createGroupChat
             (@AuthenticationPrincipal UserDetails currentUser, @Valid @RequestBody ChatCreateDtoForUser dto) {

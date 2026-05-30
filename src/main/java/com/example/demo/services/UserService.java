@@ -24,12 +24,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Transactional(readOnly = true)
     public List<UserResponseDTO> findAll() {
         List<User> users = userRepository.findAll();
         checkList(users);
@@ -96,7 +96,6 @@ public class UserService {
         return new UserResponseDTO(saved);
     }
 
-    @Transactional(readOnly = true)
     public List<ForUserResponse> findByName(String name) {
         List<User> users = userRepository.findByName(name);
         checkList(users);
@@ -126,7 +125,6 @@ public class UserService {
         return new ForUserResponse(user);
     }
 
-    @Transactional(readOnly = true)
     public List<ForUserResponse> findAllUsers() {
         List<User> users = userRepository.findAllUsers();
         checkList(users);

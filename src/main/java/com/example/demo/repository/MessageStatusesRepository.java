@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface MessageStatusesRepository extends JpaRepository<MessageStatuses, Integer> {
@@ -16,14 +17,40 @@ public interface MessageStatusesRepository extends JpaRepository<MessageStatuses
             @Param("userId") Long userId,
             @Param("message") String message);
 
-    List<MessageStatuses> findByUserId(Long user);
-    List<MessageStatuses> findByUserEmail(String email);
-    List<MessageStatuses> findByNotificationId(Long notification);
-    List<MessageStatuses> findByNotificationMessage(String message);
+    @Query("SELECT DISTINCT ms FROM MessageStatuses ms " +
+            "LEFT JOIN FETCH ms.notification n " +
+            "LEFT JOIN FETCH n.user nu " +
+            "LEFT JOIN FETCH ms.user mu " +
+            "WHERE ms.user.id = :userId")
+    List<MessageStatuses> findByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT ms FROM MessageStatuses ms " +
-            "WHERE ms.notification.chat.id = :chatId " +
-            "AND ms.user.email = :userEmail")
+    @Query("SELECT DISTINCT ms FROM MessageStatuses ms " +
+            "LEFT JOIN FETCH ms.notification n " +
+            "LEFT JOIN FETCH n.user nu " +
+            "LEFT JOIN FETCH ms.user mu " +
+            "WHERE mu.email = :email")
+    List<MessageStatuses> findByUserEmail(@Param("email") String email);
+
+    @Query("SELECT DISTINCT ms FROM MessageStatuses ms " +
+            "LEFT JOIN FETCH ms.notification n " +
+            "LEFT JOIN FETCH n.user nu " +
+            "LEFT JOIN FETCH ms.user mu " +
+            "WHERE n.id = :notificationId")
+    Optional<MessageStatuses> findByNotificationId(@Param("notificationId") Long notification);
+
+    @Query("SELECT DISTINCT ms FROM MessageStatuses ms " +
+            "LEFT JOIN FETCH ms.notification n " +
+            "LEFT JOIN FETCH n.user nu " +
+            "LEFT JOIN FETCH ms.user mu " +
+            "WHERE n.message LIKE %:message%")
+    List<MessageStatuses> findByNotificationMessage(@Param("message") String message);
+
+    @Query("SELECT DISTINCT ms FROM MessageStatuses ms " +
+            "LEFT JOIN FETCH ms.notification n " +
+            "LEFT JOIN FETCH n.user nu " +
+            "LEFT JOIN FETCH ms.user mu " +
+            "LEFT JOIN FETCH n.chat c " +
+            "WHERE c.id = :chatId AND mu.email = :userEmail")
     List<MessageStatuses> findByChatIdAndUserEmail(@Param("chatId") Long chatId,
                                                    @Param("userEmail") String userEmail);
 }

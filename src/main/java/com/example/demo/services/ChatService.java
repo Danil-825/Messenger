@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ChatService {
     private final ChatRepository chatRepository;
     private final UserRepository userRepository;
