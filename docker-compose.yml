@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: TestBD
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 54321
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U your_username -d your_database_name"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  spring-app:
+    build: .
+    container_name: spring_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/TestBD
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 54321
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
